@@ -4,12 +4,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const dropArea = document.getElementById('dropArea');
     const imagePreview = document.getElementById('imagePreview');
     const videoPreview = document.getElementById('videoPreview');
+    const controls = document.getElementById('controls');
     const convertBtn = document.getElementById('convertBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const status = document.getElementById('status');
     const imageInfo = document.getElementById('imageInfo');
     const videoInfo = document.getElementById('videoInfo');
-    
+    const previewBox = document.getElementById('preview-container');
+
     // تنظیمات ثابت برای استیکر تلگرام
     const STICKER_SIZE = 512;
     const MAX_DURATION = 3000;
@@ -68,6 +70,8 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadedImage.src = e.target.result;
             
             uploadedImage.onload = function() {
+                previewBox.style.display = "flex";
+                controls.style.display = "flex";
                 // نمایش پیش‌نمایش
                 imagePreview.src = this.src;
                 imageInfo.textContent = `سایز اصلی: ${this.width}×${this.height} پیکسل`;
