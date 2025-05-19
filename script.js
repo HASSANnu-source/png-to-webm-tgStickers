@@ -11,11 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const videoInfo = document.getElementById('videoInfo');
     
     // تنظیمات ثابت برای استیکر تلگرام
-    const STICKER_SIZE = 512; // ابعاد مورد نیاز تلگرام
-    const MAX_DURATION = 3000; // 3 ثانیه (حداکثر مدت مجاز)
-    const MAX_SIZE_KB = 256; // حداکثر حجم مجاز
-    const TARGET_FPS = 30; // نرخ فریم هدف
-    
+    const STICKER_SIZE = 512;
+    const MAX_DURATION = 3000;
+    const MAX_SIZE_KB = 256;
+    const TARGET_FPS = 30;
+
     // متغیرهای حالت
     let uploadedImage = null;
     let webmBlob = null;
@@ -53,12 +53,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * بررسی و بارگذاری تصویر
-     * @param {File} file - فایل تصویر
      */
     function validateAndLoadImage(file) {
         // بررسی نوع فایل
-        if (!file.type.match('image/png')) {
-            showStatus('لطفاً فقط فایل‌های PNG با پس‌زمینه شفاف آپلود کنید.', 'error');
+        if (!file.type.match('image.*')) {
+            showStatus('لطفاً فقط فایل‌های تصویری آپلود کنید.', 'error');
             return;
         }
 
@@ -69,32 +68,21 @@ document.addEventListener('DOMContentLoaded', function() {
             uploadedImage.src = e.target.result;
             
             uploadedImage.onload = function() {
-                // بررسی ابعاد تصویر
-                if (this.width > STICKER_SIZE || this.height > STICKER_SIZE) {
-                    showStatus(
-                        `تصویر باید حداکثر ${STICKER_SIZE}×${STICKER_SIZE} پیکسل باشد. 
-                        سایز تصویر شما: ${this.width}×${this.height}`,
-                        'error'
-                    );
-                    resetConverter();
-                    return;
-                }
-
                 // نمایش پیش‌نمایش
                 imagePreview.src = this.src;
-                imageInfo.textContent = `سایز: ${this.width}×${this.height} پیکسل`;
+                imageInfo.textContent = `سایز اصلی: ${this.width}×${this.height} پیکسل`;
                 
                 // فعال کردن دکمه تبدیل
                 convertBtn.disabled = false;
                 downloadBtn.disabled = true;
-                showStatus('تصویر با موفقیت بارگذاری شد. حالا می‌توانید تبدیل را انجام دهید.', 'success');
+                showStatus('تصویر با موفقیت بارگذاری شد.', 'success');
                 videoPreview.src = '';
                 videoInfo.textContent = '';
                 webmBlob = null;
             };
 
             uploadedImage.onerror = function() {
-                showStatus('خطا در بارگذاری تصویر. لطفاً فایل معتبر دیگری انتخاب کنید.', 'error');
+                showStatus('خطا در بارگذاری تصویر.', 'error');
                 resetConverter();
             };
         };
@@ -103,44 +91,85 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * تبدیل تصویر به استیکر ویدیویی WebM
+     * تبدیل تصویر به ابعاد 512x512 با حفظ نسبت و اضافه کردن پس‌زمینه شفاف
+     */
+    function resizeImageWithTransparentBg(image) {
+        const canvas = document.createElement('canvas');
+        canvas.width = STICKER_SIZE;
+        canvas.height = STICKER_SIZE;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // ایجاد پس‌زمینه شفاف
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // محاسبه نسبت و موقعیت جدید برای حفظ تناسب
+        const ratio = Math.min(
+            STICKER_SIZE / image.width,
+            STICKER_SIZE / image.height
+        );
+        
+        const newWidth = image.width * ratio;
+        const newHeight = image.height * ratio;
+        
+        const offsetX = (STICKER_SIZE - newWidth) / 2;
+        const offsetY = (STICKER_SIZE - newHeight) / 2;
+        
+        // رسم تصویر با حفظ تناسب و در مرکز کانواس
+        ctx.drawImage(
+            image,
+            offsetX, offsetY,
+            newWidth, newHeight
+        );
+        
+        return canvas;
+    }
+
+    /**
+     * بررسی وجود پیکسل‌های شفاف در تصویر
+     */
+    function hasTransparency(imageData) {
+        for (let i = 3; i < imageData.data.length; i += 4) {
+            if (imageData.data[i] < 255) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * تبدیل تصویر به استیکر ویدیویی
      */
     async function convertToSticker() {
         if (!uploadedImage) return;
         
         convertBtn.disabled = true;
-        showStatus('در حال ایجاد استیکر ویدیویی...', 'processing');
+        showStatus('در حال ایجاد استیکر...', 'processing');
         
         try {
-            // ایجاد کانواس با ابعاد مورد نیاز تلگرام
-            const canvas = document.createElement('canvas');
-            canvas.width = STICKER_SIZE;
-            canvas.height = STICKER_SIZE;
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            // تبدیل ابعاد و اضافه کردن پس‌زمینه شفاف
+            const canvas = resizeImageWithTransparentBg(uploadedImage);
+            const ctx = canvas.getContext('2d');
             
-            // پاکسازی کانواس (شفاف)
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // بررسی شفافیت تصویر
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const isTransparent = hasTransparency(imageData);
             
-            // محاسبه موقعیت برای قرارگیری تصویر در مرکز
-            const offsetX = (STICKER_SIZE - uploadedImage.width) / 2;
-            const offsetY = (STICKER_SIZE - uploadedImage.height) / 2;
-            
-            // رسم تصویر در مرکز کانواس
-            ctx.drawImage(uploadedImage, offsetX, offsetY);
+            if (!isTransparent) {
+                showStatus('توجه: تصویر پس‌زمینه شفاف ندارد. پس‌زمینه شفاف اضافه شد.', 'info');
+            }
 
             // ==================== تنظیمات MediaRecorder ====================
             const stream = canvas.captureStream(TARGET_FPS);
             const options = {
                 mimeType: 'video/webm;codecs=vp9',
-                videoBitsPerSecond: 150000, // 150kbps برای تعادل بین کیفیت و حجم
+                videoBitsPerSecond: 150000,
             };
 
             // بررسی پشتیبانی مرورگر از VP9
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                throw new Error('مرورگر شما از کدک VP9 پشتیبانی نمی‌کند. لطفاً از Chrome یا Edge استفاده کنید.');
+                throw new Error('مرورگر شما از کدک VP9 پشتیبانی نمی‌کند.');
             }
 
-            // ایجاد MediaRecorder
             mediaRecorder = new MediaRecorder(stream, options);
             const chunks = [];
             
@@ -155,24 +184,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     // بررسی حجم فایل
                     const fileSizeKB = webmBlob.size / 1024;
                     if (fileSizeKB > MAX_SIZE_KB) {
-                        showStatus(
-                            `حجم فایل ${fileSizeKB.toFixed(2)}KB است که بیش از حد مجاز (${MAX_SIZE_KB}KB) می‌باشد.`,
-                            'error'
-                        );
+                        showStatus(`حجم فایل ${fileSizeKB.toFixed(2)}KB است. برای کاهش حجم، کیفیت تصویر را پایین بیاورید.`, 'error');
                         return;
                     }
                     
-                    // نمایش ویدیوی نتیجه
+                    // نمایش نتیجه
                     const videoUrl = URL.createObjectURL(webmBlob);
                     videoPreview.src = videoUrl;
-                    videoInfo.textContent = `سایز: ${STICKER_SIZE}×${STICKER_SIZE} | حجم: ${formatFileSize(webmBlob.size)} | مدت: 3 ثانیه`;
+                    videoInfo.textContent = `سایز: ${STICKER_SIZE}×${STICKER_SIZE} | حجم: ${fileSizeKB.toFixed(2)}KB | مدت: 3 ثانیه`;
                     
-                    // فعال کردن دکمه دانلود
                     downloadBtn.disabled = false;
-                    showStatus(
-                        `استیکر با موفقیت ایجاد شد! حجم: ${fileSizeKB.toFixed(2)}KB`,
-                        'success'
-                    );
+                    showStatus(`استیکر آماده است! (${fileSizeKB.toFixed(2)}KB)`, 'success');
                 } catch (error) {
                     console.error('خطا در پردازش ویدیو:', error);
                     showStatus('خطا در ایجاد استیکر: ' + error.message, 'error');
@@ -181,22 +203,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
 
-            // مدیریت خطاها
             mediaRecorder.onerror = function(e) {
                 console.error('خطای MediaRecorder:', e.error);
-                showStatus('خطا در ضبط ویدیو: ' + e.error.message, 'error');
+                showStatus('خطا در ضبط ویدیو.', 'error');
                 convertBtn.disabled = false;
             };
 
             // شروع ضبط
-            mediaRecorder.start(100); // دریافت داده هر 100 میلی‌ثانیه
+            mediaRecorder.start(100);
             
             // توقف خودکار پس از 3 ثانیه
             setTimeout(() => {
                 if (mediaRecorder && mediaRecorder.state !== 'inactive') {
                     mediaRecorder.stop();
-                    
-                    // آزاد کردن منابع
                     stream.getTracks().forEach(track => track.stop());
                 }
             }, MAX_DURATION);
@@ -209,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * دانلود استیکر ایجاد شده
+     * دانلود استیکر
      */
     function downloadSticker() {
         if (!webmBlob) return;
@@ -221,7 +240,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(a);
         a.click();
         
-        // تمیزکاری
         setTimeout(() => {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
@@ -230,33 +248,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== توابع کمکی ====================
 
-    /**
-     * نمایش وضعیت با استایل مناسب
-     * @param {string} message - پیام نمایشی
-     * @param {string} type - نوع پیام (success, error, processing)
-     */
     function showStatus(message, type = 'error') {
         status.textContent = message;
-        status.className = 'status';
-        
-        switch (type) {
-            case 'success':
-                status.classList.add('success');
-                break;
-            case 'error':
-                status.classList.add('error');
-                break;
-            case 'processing':
-                status.classList.add('processing');
-                break;
-        }
+        status.className = 'status ' + type;
     }
 
-    /**
-     * فرمت کردن حجم فایل برای نمایش
-     * @param {number} bytes - حجم فایل به بایت
-     * @returns {string} رشته فرمت شده
-     */
     function formatFileSize(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -265,9 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    /**
-     * ریست کردن مبدل به حالت اولیه
-     */
     function resetConverter() {
         convertBtn.disabled = true;
         downloadBtn.disabled = true;
@@ -283,9 +276,9 @@ document.addEventListener('DOMContentLoaded', function() {
     convertBtn.addEventListener('click', convertToSticker);
     downloadBtn.addEventListener('click', downloadSticker);
 
-    // بررسی اولیه پشتیبانی از MediaRecorder
+    // بررسی پشتیبانی مرورگر
     if (!window.MediaRecorder) {
-        showStatus('مرورگر شما از قابلیت ضبط ویدیو پشتیبانی نمی‌کند. لطفاً از Chrome، Edge یا Firefox جدید استفاده کنید.', 'error');
+        showStatus('مرورگر شما از این قابلیت پشتیبانی نمی‌کند.', 'error');
         convertBtn.disabled = true;
     }
 });
