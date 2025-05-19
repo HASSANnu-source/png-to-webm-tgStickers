@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ساخت استیکر ویدیویی برای تلگرام</title>
+        <link rel="stylesheet" href="styles.css">
+        <!-- اضافه کردن این خط برای دیباگ -->
+        <script>
+            console.log("Page loaded successfully");
+        </script>
+    </head>
+<body>
+    <div class="container">
+        <h1>ساخت استیکر ویدیویی برای تلگرام</h1>
+        
+        <div class="requirements">
+            <h3>نیازمندی‌های تلگرام:</h3>
+            <ul>
+                <li>فرمت: WebM با کدک VP9</li>
+                <li>ابعاد: دقیقاً 512×512 پیکسل</li>
+                <li>مدت زمان: حداکثر 3 ثانیه</li>
+                <li>حجم: حداکثر 256 کیلوبایت</li>
+                <li>پس‌زمینه باید شفاف باشد</li>
+            </ul>
+        </div>
+        
+        <div class="upload-area" id="dropArea">
+            <input type="file" id="fileInput" accept=".png" hidden>
+            <label for="fileInput" class="upload-label">
+                <span class="icon">📁</span>
+                <span>تصویر PNG با پس‌زمینه شفاف را انتخاب کنید</span>
+            </label>
+        </div>
+        
+        <div class="preview-container">
+            <div class="preview-box">
+                <h3>پیش نمایش تصویر:</h3>
+                <img id="imagePreview" alt="پیش نمایش تصویر">
+                <div class="image-info" id="imageInfo"></div>
+            </div>
+            <div class="preview-box">
+                <h3>استیکر خروجی:</h3>
+                <video id="videoPreview" controls></video>
+                <div class="video-info" id="videoInfo"></div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="convertBtn" disabled>تبدیل به استیکر</button>
+            <button id="downloadBtn" disabled>دانلود استیکر</button>
+        </div>
+        
+        <div class="status" id="status"></div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
